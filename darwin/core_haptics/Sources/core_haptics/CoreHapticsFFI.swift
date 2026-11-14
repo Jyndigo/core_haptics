@@ -361,7 +361,11 @@ public func chffi_player_release(_ handle: UnsafeMutableRawPointer?) {
 
 @_cdecl("chffi_supports_haptics")
 public func chffi_supports_haptics() -> Int32 {
+    #if os(macOS)
+    return 1
+    #else
     return CHHapticEngine.capabilitiesForHardware().supportsHaptics ? 1 : 0
+    #endif
 }
 
 #if canImport(UIKit)
@@ -373,7 +377,7 @@ public func chffi_impact_light() {
     #if canImport(UIKit) && !os(tvOS)
     UIImpactFeedbackGenerator(style: .light).impactOccurred()
     #elseif os(macOS)
-    playMacTransient(intensity: 0.45, sharpness: 0.4)
+    performMacHaptic(.alignment)
     #endif
 }
 
@@ -382,7 +386,7 @@ public func chffi_impact_medium() {
     #if canImport(UIKit) && !os(tvOS)
     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     #elseif os(macOS)
-    playMacTransient(intensity: 0.85, sharpness: 0.7)
+    performMacHaptic(.generic)
     #endif
 }
 
@@ -391,7 +395,7 @@ public func chffi_impact_heavy() {
     #if canImport(UIKit) && !os(tvOS)
     UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
     #elseif os(macOS)
-    playMacTransient(intensity: 1, sharpness: 1)
+    performMacHaptic(.levelChange)
     #endif
 }
 
@@ -402,7 +406,7 @@ public func chffi_impact_soft() {
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
     #elseif os(macOS)
-    playMacTransient(intensity: 0.55, sharpness: 0.15)
+    performMacHaptic(.alignment)
     #endif
 }
 
@@ -413,7 +417,7 @@ public func chffi_impact_rigid() {
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
     }
     #elseif os(macOS)
-    playMacTransient(intensity: 1, sharpness: 1)
+    performMacHaptic(.levelChange)
     #endif
 }
 
@@ -422,7 +426,7 @@ public func chffi_notification_success() {
     #if canImport(UIKit) && !os(tvOS)
     UINotificationFeedbackGenerator().notificationOccurred(.success)
     #elseif os(macOS)
-    playMacTransient(intensity: 0.8, sharpness: 0.5)
+    performMacHaptic(.generic)
     #endif
 }
 
@@ -431,7 +435,7 @@ public func chffi_notification_warning() {
     #if canImport(UIKit) && !os(tvOS)
     UINotificationFeedbackGenerator().notificationOccurred(.warning)
     #elseif os(macOS)
-    playMacTransient(intensity: 1, sharpness: 0.8)
+    performMacHaptic(.levelChange)
     #endif
 }
 
@@ -440,7 +444,7 @@ public func chffi_notification_error() {
     #if canImport(UIKit) && !os(tvOS)
     UINotificationFeedbackGenerator().notificationOccurred(.error)
     #elseif os(macOS)
-    playMacTransient(intensity: 1, sharpness: 1)
+    performMacHaptic(.levelChange)
     #endif
 }
 
@@ -449,56 +453,14 @@ public func chffi_selection() {
     #if canImport(UIKit) && !os(tvOS)
     UISelectionFeedbackGenerator().selectionChanged()
     #elseif os(macOS)
-    playMacTransient(intensity: 0.4, sharpness: 0.6)
+    performMacHaptic(.alignment)
     #endif
 }
 
 #if os(macOS)
-private let macHapticQueue = DispatchQueue(label: "core.haptics.simple")
-private var macHapticEngine: CHHapticEngine?
-private var macPlayers: [CHHapticPatternPlayer] = []
-
-private func macEngine() throws -> CHHapticEngine {
-    if let macHapticEngine { return macHapticEngine }
-    let engine = try CHHapticEngine()
-    engine.isAutoShutdownEnabled = false
-    engine.resetHandler = { try? engine.start() }
-    try engine.start()
-    macHapticEngine = engine
-    return engine
-}
-
-func warmMacHaptics() {
-    macHapticQueue.async {
-        guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else { return }
-        _ = try? macEngine()
-    }
-}
-
-private func playMacTransient(intensity: Float, sharpness: Float) {
-    macHapticQueue.async {
-        guard CHHapticEngine.capabilitiesForHardware().supportsHaptics else { return }
-        do {
-            let engine = try macEngine()
-            try engine.start()
-            let event = CHHapticEvent(
-                eventType: .hapticTransient,
-                parameters: [
-                    CHHapticEventParameter(parameterID: .hapticIntensity, value: intensity),
-                    CHHapticEventParameter(parameterID: .hapticSharpness, value: sharpness),
-                ],
-                relativeTime: 0
-            )
-            let pattern = try CHHapticPattern(events: [event], parameters: [])
-            let player = try engine.makePlayer(with: pattern)
-            macPlayers.append(player)
-            try player.start(atTime: CHHapticTimeImmediate)
-            macHapticQueue.asyncAfter(deadline: .now() + 0.3) {
-                macPlayers.removeAll { $0 === player }
-            }
-        } catch {
-            macHapticEngine = nil
-        }
+private func performMacHaptic(_ pattern: NSHapticFeedbackManager.FeedbackPattern) {
+    DispatchQueue.main.async {
+        NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
     }
 }
 #endif
@@ -534,9 +496,6 @@ public class CoreHapticsPlugin: NSObject, FlutterPlugin {
     public static func register(with registrar: FlutterPluginRegistrar) {
         _ = registrar
         _ = symbols
-        #if os(macOS)
-        warmMacHaptics()
-        #endif
     }
 }
 

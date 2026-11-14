@@ -62,47 +62,47 @@ class NativeHapticService implements HapticServiceBase {
 
   @override
   Future<void> lightImpact() async {
-    _bindings.impactLight();
+    if (await isSupported) _bindings.impactLight();
   }
 
   @override
   Future<void> mediumImpact() async {
-    _bindings.impactMedium();
+    if (await isSupported) _bindings.impactMedium();
   }
 
   @override
   Future<void> heavyImpact() async {
-    _bindings.impactHeavy();
+    if (await isSupported) _bindings.impactHeavy();
   }
 
   @override
   Future<void> softImpact() async {
-    _bindings.impactSoft();
+    if (await isSupported) _bindings.impactSoft();
   }
 
   @override
   Future<void> rigidImpact() async {
-    _bindings.impactRigid();
+    if (await isSupported) _bindings.impactRigid();
   }
 
   @override
   Future<void> success() async {
-    _bindings.notificationSuccess();
+    if (await isSupported) _bindings.notificationSuccess();
   }
 
   @override
   Future<void> warning() async {
-    _bindings.notificationWarning();
+    if (await isSupported) _bindings.notificationWarning();
   }
 
   @override
   Future<void> error() async {
-    _bindings.notificationError();
+    if (await isSupported) _bindings.notificationError();
   }
 
   @override
   Future<void> selection() async {
-    _bindings.selection();
+    if (await isSupported) _bindings.selection();
   }
 }
 
