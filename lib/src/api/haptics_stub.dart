@@ -17,22 +17,22 @@ typedef HapticEngineEventHandler = void Function(
 ///
 /// For simple one-liner haptics, use the static methods:
 /// ```dart
-/// await HapticEngine.success();
-/// await HapticEngine.mediumImpact();
+/// await Haptics.success();
+/// await Haptics.mediumImpact();
 /// ```
 ///
 /// For advanced control (looping, dynamic parameters, engine events),
 /// create an engine instance:
 /// ```dart
-/// final engine = await HapticEngine.create();
+/// final engine = await Haptics.create();
 /// await engine.start();
 /// // ...
 /// ```
 ///
 /// **Note:** On web/WASM, only the static feedback methods are available.
 /// Advanced features (create, patterns, players) throw [UnsupportedError].
-class HapticEngine {
-  HapticEngine._();
+class Haptics {
+  Haptics._();
 
   static HapticServiceBase? _staticService;
 
@@ -115,9 +115,9 @@ class HapticEngine {
   static Future<void> play(List<HapticEvent> events) async {
     throw HapticsException(
       HapticsErrorCode.notSupported,
-      'Advanced haptic features (HapticEngine, patterns, players) '
+      'Advanced haptic features (Haptics, patterns, players) '
       'are only available on iOS and macOS. '
-      'Use static methods like HapticEngine.lightImpact() for cross-platform support.',
+      'Use static methods like Haptics.lightImpact() for cross-platform support.',
     );
   }
 
@@ -141,15 +141,15 @@ class HapticEngine {
   ///
   /// For cross-platform haptics, use the simpler static methods like
   /// [lightImpact], [mediumImpact], or [success].
-  static Future<HapticEngine> create({
+  static Future<Haptics> create({
     HapticEngineEventHandler? onEvent,
     Object? bridge,
   }) async {
     throw HapticsException(
       HapticsErrorCode.notSupported,
-      'Advanced haptic features (HapticEngine, patterns, players) '
+      'Advanced haptic features (Haptics, patterns, players) '
       'are only available on iOS and macOS. '
-      'Use static methods like HapticEngine.lightImpact() for cross-platform support.',
+      'Use static methods like Haptics.lightImpact() for cross-platform support.',
     );
   }
 

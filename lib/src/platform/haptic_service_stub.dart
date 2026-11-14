@@ -156,9 +156,9 @@ void ensureAdvancedHapticsSupported() {
     if (!testService.supportsAdvancedHaptics) {
       throw HapticsException(
         HapticsErrorCode.notSupported,
-        'Advanced haptic features (HapticEngine, patterns, players) '
+        'Advanced haptic features (Haptics, patterns, players) '
         'are only available on iOS and macOS. '
-        'Use static methods like HapticEngine.lightImpact() for cross-platform support.',
+        'Use static methods like Haptics.lightImpact() for cross-platform support.',
       );
     }
     return;
@@ -167,8 +167,8 @@ void ensureAdvancedHapticsSupported() {
   // On web/WASM, advanced haptics are never supported
   throw HapticsException(
     HapticsErrorCode.notSupported,
-    'Advanced haptic features (HapticEngine, patterns, players) '
+    'Advanced haptic features (Haptics, patterns, players) '
     'are only available on iOS and macOS. '
-    'Use static methods like HapticEngine.lightImpact() for cross-platform support.',
+    'Use static methods like Haptics.lightImpact() for cross-platform support.',
   );
 }

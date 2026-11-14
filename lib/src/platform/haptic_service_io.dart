@@ -216,7 +216,7 @@ class HapticServiceFactory {
 
 /// Throws [HapticsException] if advanced haptics are not supported.
 ///
-/// Used to guard `HapticEngine.create()` and other advanced APIs
+/// Used to guard `Haptics.create()` and other advanced APIs
 /// that require Core Haptics (iOS/macOS only).
 void ensureAdvancedHapticsSupported() {
   // Check test service first (allows mocking platform behavior in tests)
@@ -225,9 +225,9 @@ void ensureAdvancedHapticsSupported() {
     if (!testService.supportsAdvancedHaptics) {
       throw HapticsException(
         HapticsErrorCode.notSupported,
-        'Advanced haptic features (HapticEngine, patterns, players) '
+        'Advanced haptic features (Haptics, patterns, players) '
         'are only available on iOS and macOS. '
-        'Use static methods like HapticEngine.lightImpact() for cross-platform support.',
+        'Use static methods like Haptics.lightImpact() for cross-platform support.',
       );
     }
     return;
@@ -236,9 +236,9 @@ void ensureAdvancedHapticsSupported() {
   if (!HapticServiceFactory.isApplePlatform) {
     throw HapticsException(
       HapticsErrorCode.notSupported,
-      'Advanced haptic features (HapticEngine, patterns, players) '
+      'Advanced haptic features (Haptics, patterns, players) '
       'are only available on iOS and macOS. '
-      'Use static methods like HapticEngine.lightImpact() for cross-platform support.',
+      'Use static methods like Haptics.lightImpact() for cross-platform support.',
     );
   }
 }

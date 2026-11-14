@@ -22,19 +22,19 @@ typedef HapticEngineEventHandler = void Function(
 ///
 /// For simple one-liner haptics, use the static methods:
 /// ```dart
-/// await HapticEngine.success();
-/// await HapticEngine.mediumImpact();
+/// await Haptics.success();
+/// await Haptics.mediumImpact();
 /// ```
 ///
 /// For advanced control (looping, dynamic parameters, engine events),
 /// create an engine instance:
 /// ```dart
-/// final engine = await HapticEngine.create();
+/// final engine = await Haptics.create();
 /// await engine.start();
 /// // ...
 /// ```
-class HapticEngine implements ffi.Finalizable {
-  HapticEngine._(
+class Haptics implements ffi.Finalizable {
+  Haptics._(
     this._bridge,
     this._handle,
     this._contextId,
@@ -49,7 +49,7 @@ class HapticEngine implements ffi.Finalizable {
   static final Map<int, void Function(int, String?)> _contextHandlers = {};
 
   static NativeBindings? _staticBindings;
-  static HapticEngine? _sharedEngine;
+  static Haptics? _sharedEngine;
   static NativeBridgeBase? _staticBridge;
   static HapticServiceBase? _staticService;
 
@@ -133,11 +133,11 @@ class HapticEngine implements ffi.Finalizable {
   /// For cross-platform haptics, use the simpler static methods like
   /// [lightImpact], [mediumImpact], or [success].
   ///
-  /// For more control, use [HapticEngine.create] directly.
+  /// For more control, use [Haptics.create] directly.
   static Future<void> play(List<HapticEvent> events) async {
     ensureAdvancedHapticsSupported();
     if (!await isSupported) return;
-    _sharedEngine ??= await HapticEngine.create(bridge: _staticBridge);
+    _sharedEngine ??= await Haptics.create(bridge: _staticBridge);
     await _sharedEngine!.start();
     final pattern = await _sharedEngine!.loadPatternFromEvents(events);
     final player = await _sharedEngine!.createPlayer(pattern);
@@ -192,7 +192,7 @@ class HapticEngine implements ffi.Finalizable {
   ///
   /// For cross-platform haptics, use the simpler static methods like
   /// [lightImpact], [mediumImpact], or [success].
-  static Future<HapticEngine> create({
+  static Future<Haptics> create({
     HapticEngineEventHandler? onEvent,
     NativeBridgeBase? bridge,
   }) async {
@@ -209,7 +209,7 @@ class HapticEngine implements ffi.Finalizable {
     if (handle == null || handle == ffi.Pointer<ffi.Void>.fromAddress(0)) {
       throw HapticsException(HapticsErrorCode.engine, 'Engine handle missing');
     }
-    final engine = HapticEngine._(
+    final engine = Haptics._(
       nativeBridge,
       handle,
       contextId,
