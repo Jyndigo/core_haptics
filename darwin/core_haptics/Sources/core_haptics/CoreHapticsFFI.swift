@@ -377,7 +377,7 @@ public func chffi_impact_light() {
     #if canImport(UIKit) && !os(tvOS)
     UIImpactFeedbackGenerator(style: .light).impactOccurred()
     #elseif os(macOS)
-    performMacHaptic(.alignment)
+    macTap(4)
     #endif
 }
 
@@ -386,7 +386,7 @@ public func chffi_impact_medium() {
     #if canImport(UIKit) && !os(tvOS)
     UIImpactFeedbackGenerator(style: .medium).impactOccurred()
     #elseif os(macOS)
-    performMacHaptic(.generic)
+    macTap(6)
     #endif
 }
 
@@ -395,7 +395,7 @@ public func chffi_impact_heavy() {
     #if canImport(UIKit) && !os(tvOS)
     UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
     #elseif os(macOS)
-    performMacHaptic(.levelChange)
+    macTap(6)
     #endif
 }
 
@@ -406,7 +406,7 @@ public func chffi_impact_soft() {
         UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
     #elseif os(macOS)
-    performMacHaptic(.alignment)
+    macTap(4)
     #endif
 }
 
@@ -417,7 +417,7 @@ public func chffi_impact_rigid() {
         UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
     }
     #elseif os(macOS)
-    performMacHaptic(.levelChange)
+    macTap(6)
     #endif
 }
 
@@ -426,7 +426,7 @@ public func chffi_notification_success() {
     #if canImport(UIKit) && !os(tvOS)
     UINotificationFeedbackGenerator().notificationOccurred(.success)
     #elseif os(macOS)
-    performMacHaptic(.generic)
+    macTap(4)
     #endif
 }
 
@@ -435,7 +435,7 @@ public func chffi_notification_warning() {
     #if canImport(UIKit) && !os(tvOS)
     UINotificationFeedbackGenerator().notificationOccurred(.warning)
     #elseif os(macOS)
-    performMacHaptic(.levelChange)
+    macTap(6)
     #endif
 }
 
@@ -444,7 +444,7 @@ public func chffi_notification_error() {
     #if canImport(UIKit) && !os(tvOS)
     UINotificationFeedbackGenerator().notificationOccurred(.error)
     #elseif os(macOS)
-    performMacHaptic(.levelChange)
+    macTap(6)
     #endif
 }
 
@@ -453,14 +453,96 @@ public func chffi_selection() {
     #if canImport(UIKit) && !os(tvOS)
     UISelectionFeedbackGenerator().selectionChanged()
     #elseif os(macOS)
-    performMacHaptic(.alignment)
+    macTap(3)
     #endif
 }
 
 #if os(macOS)
-private func performMacHaptic(_ pattern: NSHapticFeedbackManager.FeedbackPattern) {
-    DispatchQueue.main.async {
-        NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
+// Trackpad actuator adapted from Tactile (https://github.com/Mason363/Tactile),
+// MIT License, Copyright (c) 2026 Mason Chen. See NOTICE.
+// Loaded with dlopen at runtime; nothing is linked at build time.
+
+private let macTapQueue = DispatchQueue(label: "core.haptics.mac.tap", qos: .userInteractive)
+
+private final class MacTrackpadActuator {
+    typealias CreateFunc = @convention(c) (UInt64) -> UnsafeMutableRawPointer?
+    typealias OpenCloseFunc = @convention(c) (UnsafeMutableRawPointer) -> Int32
+    typealias ActuateFunc = @convention(c) (UnsafeMutableRawPointer, Int32, UInt32, Float, Float) -> Int32
+    typealias DeviceListFunc = @convention(c) () -> Unmanaged<CFArray>?
+    typealias DeviceIDFunc = @convention(c) (UnsafeMutableRawPointer, UnsafeMutablePointer<UInt64>) -> Int32
+
+    static let shared = MacTrackpadActuator()
+
+    private static let rescanInterval: CFAbsoluteTime = 2
+
+    private var actuators: [UnsafeMutableRawPointer] = []
+    private var knownIDs: Set<UInt64> = []
+    private var lastScan: CFAbsoluteTime = 0
+
+    private let create: CreateFunc?
+    private let open: OpenCloseFunc?
+    private let actuate: ActuateFunc?
+    private let listDevices: DeviceListFunc?
+    private let getDeviceID: DeviceIDFunc?
+
+    private init() {
+        let path = "/System/Library/PrivateFrameworks/MultitouchSupport.framework/MultitouchSupport"
+        let handle = dlopen(path, RTLD_NOW)
+        create = MacTrackpadActuator.symbol(handle, "MTActuatorCreateFromDeviceID", CreateFunc.self)
+        open = MacTrackpadActuator.symbol(handle, "MTActuatorOpen", OpenCloseFunc.self)
+        actuate = MacTrackpadActuator.symbol(handle, "MTActuatorActuate", ActuateFunc.self)
+        listDevices = MacTrackpadActuator.symbol(handle, "MTDeviceCreateList", DeviceListFunc.self)
+        getDeviceID = MacTrackpadActuator.symbol(handle, "MTDeviceGetDeviceID", DeviceIDFunc.self)
+        scan()
+    }
+
+    private static func symbol<T>(_ handle: UnsafeMutableRawPointer?, _ name: String, _ type: T.Type) -> T? {
+        guard let handle, let sym = dlsym(handle, name) else { return nil }
+        return unsafeBitCast(sym, to: type)
+    }
+
+    /// Opens an actuator for every haptic trackpad not seen yet.
+    private func scan() {
+        lastScan = CFAbsoluteTimeGetCurrent()
+        guard let create, let open, let listDevices, let getDeviceID,
+              let scanned = listDevices()?.takeRetainedValue() as? [AnyObject] else { return }
+        for device in scanned {
+            let pointer = Unmanaged.passUnretained(device).toOpaque()
+            var deviceID: UInt64 = 0
+            guard getDeviceID(pointer, &deviceID) == 0, deviceID != 0, !knownIDs.contains(deviceID),
+                  let actuator = create(deviceID) else { continue }
+            guard open(actuator) == 0 else {
+                Unmanaged<AnyObject>.fromOpaque(actuator).release()
+                continue
+            }
+            knownIDs.insert(deviceID)
+            actuators.append(actuator)
+        }
+    }
+
+    /// Returns false when no trackpad actuator is available.
+    func tick(_ actuationID: Int32) -> Bool {
+        if actuators.isEmpty, CFAbsoluteTimeGetCurrent() - lastScan > MacTrackpadActuator.rescanInterval {
+            scan()
+        }
+        guard let actuate, !actuators.isEmpty else { return false }
+        for actuator in actuators {
+            _ = actuate(actuator, actuationID, 0, 0, 0)
+        }
+        return true
+    }
+}
+
+/// Plays one tap on the trackpad. Actuation IDs: 3 weak, 4 medium, 6 strong.
+/// Falls back to the public API when no trackpad actuator is available.
+private func macTap(_ actuationID: Int32) {
+    macTapQueue.async {
+        if MacTrackpadActuator.shared.tick(actuationID) { return }
+        let pattern: NSHapticFeedbackManager.FeedbackPattern =
+            actuationID >= 6 ? .levelChange : actuationID >= 4 ? .generic : .alignment
+        DispatchQueue.main.async {
+            NSHapticFeedbackManager.defaultPerformer.perform(pattern, performanceTime: .now)
+        }
     }
 }
 #endif
